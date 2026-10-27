@@ -10,10 +10,9 @@ import {
   Vector3,
 } from 'three';
 import type { BufferGeometry } from 'three';
+import { PLAYER_HEIGHT, PLAYER_RADIUS } from './contracts';
 import type { InputFrame, PlayerHandle } from './contracts';
 
-export const PLAYER_RADIUS = 0.35;
-export const PLAYER_HEIGHT = 1.5;
 export const WALK_SPEED = 5;
 export const SPRINT_SPEED = 8;
 export const GRAVITY = 24;
@@ -71,52 +70,95 @@ export function createPlayer(spawn: Vector3): PlayerHandle {
     position.z - PLAYER_RADIUS < b.max.z - EPS &&
     position.z + PLAYER_RADIUS > b.min.z + EPS;
 
-  const overlapY = (b: Box3): boolean =>
-    position.y < b.max.y - EPS && position.y + PLAYER_HEIGHT > b.min.y + EPS;
+  const lo = [0, 0, 0];
+  const hi = [0, 0, 0];
+  const d = [0, 0, 0];
 
-  const overlapXY = (b: Box3): boolean =>
-    position.x - PLAYER_RADIUS < b.max.x - EPS && position.x + PLAYER_RADIUS > b.min.x + EPS && overlapY(b);
+  // Swept-AABB move: finds the earliest contact along the whole displacement on
+  // all three axes at once, so the path through an edge or corner is never
+  // reordered by axis. On contact the player is snapped to the face, that axis
+  // is cancelled and the rest of the displacement slides. Returns the axes
+  // (bit 0 x, 1 y, 2 z) that were blocked and the direction of the y block.
+  const moveSwept = (dx: number, dy: number, dz: number, solids: readonly Box3[]): { blocked: number; floor: boolean } => {
+    d[0] = dx;
+    d[1] = dy;
+    d[2] = dz;
+    let blocked = 0;
+    let floor = false;
+    for (let iter = 0; iter < 3; iter++) {
+      if (d[0] === 0 && d[1] === 0 && d[2] === 0) break;
+      lo[0] = position.x - PLAYER_RADIUS;
+      lo[1] = position.y;
+      lo[2] = position.z - PLAYER_RADIUS;
+      hi[0] = position.x + PLAYER_RADIUS;
+      hi[1] = position.y + PLAYER_HEIGHT;
+      hi[2] = position.z + PLAYER_RADIUS;
 
-  const overlapZY = (b: Box3): boolean =>
-    position.z - PLAYER_RADIUS < b.max.z - EPS && position.z + PLAYER_RADIUS > b.min.z + EPS && overlapY(b);
-
-  // Sweeps along one horizontal axis; returns true when a wall stopped the move.
-  const moveHorizontal = (axis: 'x' | 'z', delta: number, solids: readonly Box3[]): boolean => {
-    if (delta === 0) return false;
-    let allowed = delta;
-    for (const b of solids) {
-      if (b.isEmpty()) continue;
-      if (axis === 'x' ? !overlapZY(b) : !overlapXY(b)) continue;
-      const p = position[axis];
-      if (delta > 0) {
-        if (b.min[axis] < p + PLAYER_RADIUS - EPS) continue;
-        allowed = Math.min(allowed, Math.max(0, b.min[axis] - PLAYER_RADIUS - p));
-      } else {
-        if (b.max[axis] > p - PLAYER_RADIUS + EPS) continue;
-        allowed = Math.max(allowed, Math.min(0, b.max[axis] + PLAYER_RADIUS - p));
+      let best = Infinity;
+      let bestAxis = -1;
+      let bestFace = 0;
+      for (const b of solids) {
+        if (b.isEmpty()) continue;
+        const bmin = [b.min.x, b.min.y, b.min.z];
+        const bmax = [b.max.x, b.max.y, b.max.z];
+        let tIn = -Infinity;
+        let tOut = Infinity;
+        let inAxis = -1;
+        let inFace = 0;
+        let miss = false;
+        for (let a = 0; a < 3 && !miss; a++) {
+          const v = d[a];
+          if (v === 0) {
+            if (!(lo[a] < bmax[a] - EPS && hi[a] > bmin[a] + EPS)) miss = true;
+            continue;
+          }
+          const gapIn = v > 0 ? bmin[a] - hi[a] : lo[a] - bmax[a];
+          const gapOut = v > 0 ? bmax[a] - lo[a] : hi[a] - bmin[a];
+          if (gapOut <= EPS) {
+            miss = true;
+            continue;
+          }
+          const speed = Math.abs(v);
+          if (gapIn >= -EPS) {
+            const t = Math.max(0, gapIn) / speed;
+            if (t > tIn) {
+              tIn = t;
+              inAxis = a;
+              inFace = v > 0 ? bmin[a] : bmax[a];
+            }
+          }
+          tOut = Math.min(tOut, gapOut / speed);
+        }
+        if (miss || inAxis < 0 || tIn > 1 || tIn >= tOut - 1e-9) continue;
+        if (tIn < best) {
+          best = tIn;
+          bestAxis = inAxis;
+          bestFace = inFace;
+        }
       }
-    }
-    position[axis] += allowed;
-    return allowed !== delta;
-  };
 
-  // Sweeps vertically. Returns 'floor' / 'ceiling' when blocked, otherwise null.
-  const moveVertical = (delta: number, solids: readonly Box3[]): 'floor' | 'ceiling' | null => {
-    if (delta === 0) return null;
-    let allowed = delta;
-    for (const b of solids) {
-      if (b.isEmpty() || !overlapXZ(b)) continue;
-      if (delta < 0) {
-        if (b.max.y > position.y + EPS) continue;
-        allowed = Math.max(allowed, Math.min(0, b.max.y - position.y));
-      } else {
-        if (b.min.y < position.y + PLAYER_HEIGHT - EPS) continue;
-        allowed = Math.min(allowed, Math.max(0, b.min.y - PLAYER_HEIGHT - position.y));
+      if (bestAxis < 0) {
+        position.x += d[0];
+        position.y += d[1];
+        position.z += d[2];
+        break;
       }
+      position.x += d[0] * best;
+      position.y += d[1] * best;
+      position.z += d[2] * best;
+      const dir = d[bestAxis];
+      if (bestAxis === 0) position.x = dir > 0 ? bestFace - PLAYER_RADIUS : bestFace + PLAYER_RADIUS;
+      else if (bestAxis === 2) position.z = dir > 0 ? bestFace - PLAYER_RADIUS : bestFace + PLAYER_RADIUS;
+      else {
+        position.y = dir > 0 ? bestFace - PLAYER_HEIGHT : bestFace;
+        if (dir < 0) floor = true;
+      }
+      blocked |= 1 << bestAxis;
+      d[bestAxis] = 0;
+      const rest = 1 - best;
+      for (let a = 0; a < 3; a++) d[a] *= rest;
     }
-    position.y += allowed;
-    if (allowed === delta) return null;
-    return delta < 0 ? 'floor' : 'ceiling';
+    return { blocked, floor };
   };
 
   const supported = (solids: readonly Box3[]): boolean => {
@@ -139,8 +181,9 @@ export function createPlayer(spawn: Vector3): PlayerHandle {
     const mz = finite(input.moveZ);
     const sinY = Math.sin(yaw);
     const cosY = Math.cos(yaw);
-    let dx = sinY * mz + cosY * mx;
-    let dz = -cosY * mz + sinY * mx;
+    // Contract convention: yaw 0 faces -Z and positive yaw turns toward -X.
+    let dx = -sinY * mz + cosY * mx;
+    let dz = -cosY * mz - sinY * mx;
     const len = Math.hypot(dx, dz);
     if (len > 1) {
       dx /= len;
@@ -162,12 +205,11 @@ export function createPlayer(spawn: Vector3): PlayerHandle {
     for (let i = 0; i < steps; i++) {
       velocity.y = Math.max(-TERMINAL_VELOCITY, velocity.y - GRAVITY * h);
 
-      if (moveHorizontal('x', velocity.x * h, solids)) velocity.x = 0;
-      if (moveHorizontal('z', velocity.z * h, solids)) velocity.z = 0;
-
-      const hit = moveVertical(velocity.y * h, solids);
-      grounded = hit === 'floor';
-      if (hit) velocity.y = 0;
+      const { blocked, floor } = moveSwept(velocity.x * h, velocity.y * h, velocity.z * h, solids);
+      if (blocked & 1) velocity.x = 0;
+      if (blocked & 4) velocity.z = 0;
+      grounded = floor;
+      if (blocked & 2) velocity.y = 0;
 
       if (moving) {
         const diff = shortestAngle(heading, targetHeading);

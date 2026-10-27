@@ -20,8 +20,8 @@ describe('camera rig', () => {
     const { camera, rig } = make();
     const pos = new Vector3(0, 0, 0);
     rig.reset(pos, Math.PI / 2);
-    // facing +X, so the camera sits at -X
-    expect(camera.position.x).toBeCloseTo(-7, 6);
+    // yaw +90deg looks toward -X (contract), so the camera sits at +X
+    expect(camera.position.x).toBeCloseTo(7, 6);
     expect(camera.position.z).toBeCloseTo(0, 6);
     rig.reset(pos, Math.PI);
     expect(camera.position.z).toBeCloseTo(-7, 6);
@@ -32,7 +32,7 @@ describe('camera rig', () => {
     rig.reset(new Vector3(0, 0, 0), Math.PI / 2);
     const dir = new Vector3();
     camera.getWorldDirection(dir);
-    expect(dir.x).toBeGreaterThan(0.8);
+    expect(dir.x).toBeLessThan(-0.8);
     expect(Math.abs(dir.z)).toBeLessThan(1e-6);
     expect(dir.y).toBeLessThan(0);
     const target = camera.position.clone().addScaledVector(dir, camera.position.distanceTo(new Vector3(0, 1.1, 0)));
@@ -51,7 +51,7 @@ describe('camera rig', () => {
     const { camera, rig } = make();
     rig.reset(new Vector3(0, 0, 0), 0);
     for (let i = 0; i < 600; i++) rig.update(1 / 60, new Vector3(10, 0, -4), Math.PI / 2);
-    expect(camera.position.x).toBeCloseTo(10 - 7, 3);
+    expect(camera.position.x).toBeCloseTo(10 + 7, 3);
     expect(camera.position.y).toBeCloseTo(5, 3);
     expect(camera.position.z).toBeCloseTo(-4, 3);
   });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Box3, Vector3 } from 'three';
-import { createPlayer, PLAYER_HEIGHT, PLAYER_RADIUS } from '../src/player';
+import { createPlayer } from '../src/player';
+import { PLAYER_HEIGHT, PLAYER_RADIUS } from '../src/contracts';
 import type { InputFrame } from '../src/contracts';
 
 const DT = 1 / 60;
@@ -63,12 +64,13 @@ describe('player movement', () => {
 
   it('moves relative to camera yaw', () => {
     const p = settled();
+    // yaw +90deg looks toward -X, so forward is -X and right is -Z
     run(p, 1, input({ moveZ: 1, cameraYaw: Math.PI / 2 }), [floor()]);
-    expect(p.position.x).toBeCloseTo(5, 5);
+    expect(p.position.x).toBeCloseTo(-5, 5);
     expect(p.position.z).toBeCloseTo(0, 5);
     const q = settled();
     run(q, 1, input({ moveX: 1, cameraYaw: Math.PI / 2 }), [floor()]);
-    expect(q.position.z).toBeCloseTo(5, 5);
+    expect(q.position.z).toBeCloseTo(-5, 5);
   });
 
   it('stops when input is released', () => {
@@ -196,6 +198,53 @@ describe('player jumping and landing', () => {
     expect(p.grounded).toBe(true);
     p.update(DT, input({ jumpPressed: true }), solids);
     expect(p.velocity.y).toBeGreaterThan(8);
+  });
+});
+
+describe('player platform edges', () => {
+  const edgeX = 4;
+  const thin = (): Box3[] => [box([-4, -0.05, -4], [edgeX, 0, 4])];
+
+  // Falling fast and sprinting off the platform edge: the feet reach the top
+  // while the body still overlaps it, so the player must land, not slip through.
+  const fallOffEdge = (dt: number): ReturnType<typeof createPlayer> => {
+    const solids = thin();
+    const p = createPlayer(new Vector3(edgeX + 0.3, 0.2, 0));
+    p.velocity.y = -40;
+    p.update(dt, input({ moveX: 1, sprint: true }), solids);
+    return p;
+  };
+
+  it('lands on the edge of a thin platform when sprinting sideways while falling fast', () => {
+    const p = fallOffEdge(1 / 60);
+    expect(p.position.y).toBe(0);
+    expect(p.grounded).toBe(true);
+    expect(p.velocity.y).toBe(0);
+    expect(p.position.x).toBeGreaterThan(edgeX + 0.3);
+  });
+
+  it('does not fall through the thin platform edge with larger bounded steps', () => {
+    for (const dt of [1 / 30, 0.05, 0.1]) {
+      const p = fallOffEdge(dt);
+      // either still standing on the edge, or legitimately walked fully off it afterwards
+      const clear = p.position.x - PLAYER_RADIUS >= edgeX;
+      expect(clear || p.position.y === 0).toBe(true);
+    }
+  });
+
+  it('is deterministic for the edge contact', () => {
+    expect(fallOffEdge(1 / 60).position.toArray()).toEqual(fallOffEdge(1 / 60).position.toArray());
+  });
+
+  it('hits the side of a platform, not its top, when it reaches the edge below the top', () => {
+    const solids = [box([0, -1, -4], [4, 0, 4])];
+    const p = createPlayer(new Vector3(-PLAYER_RADIUS - 0.05, 0.2, 0));
+    p.velocity.y = -40;
+    p.update(1 / 60, input({ moveX: 1, sprint: true }), solids);
+    // the feet drop below the top plane before the body reaches the platform's side, so the side blocks it
+    expect(p.position.x).toBeCloseTo(-PLAYER_RADIUS, 9);
+    expect(p.position.y).toBeLessThan(0);
+    expect(p.grounded).toBe(false);
   });
 });
 

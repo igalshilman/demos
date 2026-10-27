@@ -23,9 +23,9 @@ export function createCameraRig(camera: PerspectiveCamera): CameraRig {
   let yaw = 0;
 
   const apply = (): void => {
-    // Camera sits behind the focus point: opposite of forward (sin y, 0, -cos y).
+    // Contract: the view looks along (-sin y, 0, -cos y), so the camera sits opposite, at (+sin y, +cos y).
     camera.position.set(
-      focus.x - Math.sin(yaw) * CAMERA_DISTANCE,
+      focus.x + Math.sin(yaw) * CAMERA_DISTANCE,
       focus.y + CAMERA_HEIGHT,
       focus.z + Math.cos(yaw) * CAMERA_DISTANCE,
     );
