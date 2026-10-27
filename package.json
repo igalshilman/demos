@@ -1,0 +1,15 @@
+{
+  "name": "calculator-cli",
+  "version": "1.0.0",
+  "description": "Command-line calculator evaluating a single arithmetic expression",
+  "type": "module",
+  "bin": {
+    "calc": "./src/calculator.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
