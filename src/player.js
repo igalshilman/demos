@@ -43,7 +43,7 @@ function createCharacter() {
   mesh(geo(new THREE.BoxGeometry(0.28, 0.34, 0.12)), cream, body, 0, 0.78, -0.25);
 
   const head = new THREE.Group();
-  head.position.set(0, 1.1, 0);
+  head.position.set(0, 1.08, 0);
   body.add(head);
   mesh(geo(new THREE.IcosahedronGeometry(0.255, 0)), cream, head, 0, 0.0, 0);
   mesh(geo(new THREE.BoxGeometry(0.3, 0.14, 0.1)), dark, head, 0, 0.02, 0.2);
@@ -62,8 +62,8 @@ function createCharacter() {
     return pivot;
   };
 
-  const legL = makeLimb(-0.11, 0.52, 0.34, 0.07, dark, coral);
-  const legR = makeLimb(0.11, 0.52, 0.34, 0.07, dark, coral);
+  const legL = makeLimb(-0.11, 0.52, 0.42, 0.07, dark, coral);
+  const legR = makeLimb(0.11, 0.52, 0.42, 0.07, dark, coral);
   const armL = makeLimb(-0.28, 0.9, 0.3, 0.06, cream);
   const armR = makeLimb(0.28, 0.9, 0.3, 0.06, cream);
 
