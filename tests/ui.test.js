@@ -1,7 +1,34 @@
-import test, { mock } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createUI } from '../src/ui.js';
 import { createFakeDocument, FakeNode } from './fake-dom.js';
+
+// Timer doubles built on plain globals, so the tests need nothing newer than Node 18.
+function installFakeTimers() {
+  const real = { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
+  const timers = new Map();
+  let nextId = 1;
+  let now = 0;
+  globalThis.setTimeout = (fn, delay = 0) => {
+    const id = nextId++;
+    timers.set(id, { fn, at: now + delay });
+    return id;
+  };
+  globalThis.clearTimeout = (id) => { timers.delete(id); };
+  return {
+    pending: () => timers.size,
+    tick(ms) {
+      now += ms;
+      for (const [id, timer] of [...timers]) {
+        if (timer.at <= now && timers.delete(id)) timer.fn();
+      }
+    },
+    restore() {
+      globalThis.setTimeout = real.setTimeout;
+      globalThis.clearTimeout = real.clearTimeout;
+    },
+  };
+}
 
 function setup(options = {}) {
   const doc = createFakeDocument();
@@ -54,7 +81,7 @@ test('restart and play-again buttons call onRestart', () => {
 });
 
 test('dispose removes all nodes and listeners, clears the toast timer, and is idempotent', () => {
-  mock.timers.enable({ apis: ['setTimeout'] });
+  const timers = installFakeTimers();
   try {
     const { root, ui, calls } = setup();
     const toast = root.byClass('toast')[0];
@@ -62,12 +89,14 @@ test('dispose removes all nodes and listeners, clears the toast timer, and is id
     assert.ok(countListeners(root) > 0);
 
     ui.notify('hello');
+    assert.equal(timers.pending(), 1);
     ui.dispose();
     ui.dispose();
+    assert.equal(timers.pending(), 0, 'dispose cancels the toast timer');
 
     assert.equal(root.children.length, 0);
     assert.equal(restartButton.listenerCount(), 0);
-    mock.timers.tick(5000);
+    timers.tick(5000);
     assert.equal(toast.textContent, 'hello', 'toast timer must not fire after dispose');
 
     restartButton.click();
@@ -77,22 +106,22 @@ test('dispose removes all nodes and listeners, clears the toast timer, and is id
     ui.showError('late');
     assert.equal(root.children.length, 0);
   } finally {
-    mock.timers.reset();
+    timers.restore();
   }
 });
 
 test('toast clears itself after a delay while live', () => {
-  mock.timers.enable({ apis: ['setTimeout'] });
+  const timers = installFakeTimers();
   try {
     const { root, ui } = setup();
     const toast = root.byClass('toast')[0];
     ui.notify('hi');
     assert.equal(toast.textContent, 'hi');
-    mock.timers.tick(3000);
+    timers.tick(3000);
     assert.equal(toast.textContent, '');
     ui.dispose();
   } finally {
-    mock.timers.reset();
+    timers.restore();
   }
 });
 
