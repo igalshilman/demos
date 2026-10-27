@@ -13,6 +13,7 @@ negative. Quote `*` so your shell does not expand it as a filename:
 python -m calc 2 + 3           # 5
 python -m calc -1.5 '*' 2      # -3
 python -m calc 7 - 2           # 5
+python -m calc -2 '*' 3        # -6
 python -m calc --help
 ```
 
@@ -22,5 +23,5 @@ produce an error on stderr and exit with status 2.
 To run the tests, install `pytest` and use:
 
 ```sh
-python -m pytest
+pytest
 ```

@@ -30,6 +30,7 @@ def run_calc(*args: str) -> subprocess.CompletedProcess[str]:
         (("2.5", "*", "2"), "5"),
         (("-2", "+", "-3"), "-5"),
         (("-1.5", "*", "2"), "-3"),
+        (("-2", "*", "3"), "-6"),
     ],
 )
 def test_arithmetic(args: tuple[str, ...], expected: str) -> None:
