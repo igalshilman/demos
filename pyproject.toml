@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calc-cli"
+version = "0.1.0"
+description = "A small command-line calculator"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+calc = "calc.cli:main"
+
+[tool.setuptools]
+packages = ["calc"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
