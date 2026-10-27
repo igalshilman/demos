@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Block Hopper</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="hud">
+      <div class="hud-panel hud-progress">
+        <span id="hud-count">Gems 0 / 0</span>
+        <span id="hud-goal" class="hud-goal">Goal locked</span>
+      </div>
+      <div class="hud-panel hud-controls">
+        <strong>Controls</strong>
+        <span>WASD / Arrows: move</span>
+        <span>Space: jump</span>
+        <span>R: restart</span>
+      </div>
+      <button id="restart-button" class="hud-button" type="button">Restart (R)</button>
+      <div id="win-overlay" class="win-overlay" hidden>
+        <div class="win-card">
+          <h1>You made it!</h1>
+          <p>Every gem collected and the goal reached.</p>
+          <button id="win-restart-button" class="hud-button" type="button">Play again</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
