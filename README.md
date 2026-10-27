@@ -47,4 +47,4 @@ Unit tests do not cover rendering or input. Before calling a build good, check i
 - [ ] R, the Restart button and "Play again" all reset the character, gems and HUD.
 - [ ] Falling off the course resets everything.
 - [ ] Switching tabs or windows and returning does not cause a jump, and no key stays stuck.
-- [ ] Resizing the window, and a narrow phone-sized window, keeps the HUD readable.
+- [ ] Resizing the window keeps the HUD readable; at 320px wide the progress text and Restart button do not overlap, with the goal both locked and unlocked.

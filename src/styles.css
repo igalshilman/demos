@@ -25,6 +25,17 @@ body {
   pointer-events: none;
 }
 
+.hud-top {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .hud-panel {
   position: absolute;
   padding: 8px 12px;
@@ -37,9 +48,11 @@ body {
 }
 
 .hud-progress {
-  top: 12px;
-  left: 12px;
+  position: static;
+  flex: 0 1 auto;
+  min-width: 0;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .hud-goal {
@@ -74,9 +87,8 @@ body {
 }
 
 #restart-button {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .win-overlay {
@@ -108,5 +120,9 @@ body {
 @media (max-width: 480px) {
   .hud-controls {
     font-size: 11px;
+  }
+
+  .hud-button {
+    padding: 6px 10px;
   }
 }
