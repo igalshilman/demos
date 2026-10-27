@@ -1,13 +1,32 @@
 import { formatTime } from './game-state.js';
 
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
+export function createUI(root, { onRestart, reload } = {}, doc = globalThis.document) {
+  const listeners = [];
+  const reloadPage = reload ?? (() => globalThis.location.reload());
+  // 'live' -> 'errorOnly' (game torn down, error panel kept) -> 'gone'
+  let phase = 'live';
+  let toastTimer = null;
 
-export function createUI(root, { onRestart }) {
+  function el(tag, className, text) {
+    const node = doc.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function listen(node, type, handler) {
+    node.addEventListener(type, handler);
+    const entry = { node, type, handler };
+    listeners.push(entry);
+    return entry;
+  }
+
+  function unlisten(entry) {
+    entry.node.removeEventListener(entry.type, entry.handler);
+    const i = listeners.indexOf(entry);
+    if (i >= 0) listeners.splice(i, 1);
+  }
+
   const hud = el('div', 'hud');
   hud.setAttribute('role', 'group');
   hud.setAttribute('aria-label', 'Game status');
@@ -20,8 +39,8 @@ export function createUI(root, { onRestart }) {
 
   const restartButton = el('button', 'button', 'Restart (R)');
   restartButton.type = 'button';
-  restartButton.addEventListener('click', () => {
-    onRestart();
+  listen(restartButton, 'click', () => {
+    onRestart?.();
     restartButton.blur();
   });
 
@@ -44,7 +63,7 @@ export function createUI(root, { onRestart }) {
   const winSummary = el('p');
   const playAgain = el('button', 'button button-primary', 'Play again');
   playAgain.type = 'button';
-  playAgain.addEventListener('click', onRestart);
+  listen(playAgain, 'click', () => onRestart?.());
   winCard.append(winTitle, winSummary, playAgain);
   winPanel.append(winCard);
 
@@ -58,18 +77,17 @@ export function createUI(root, { onRestart }) {
   const errorCard = el('div', 'card');
   const errorTitle = el('h2', '', 'Something went wrong');
   const errorMessage = el('p');
-  const reload = el('button', 'button button-primary', 'Reload');
-  reload.type = 'button';
-  reload.addEventListener('click', () => window.location.reload());
-  errorCard.append(errorTitle, errorMessage, reload);
+  const reloadButton = el('button', 'button button-primary', 'Reload');
+  reloadButton.type = 'button';
+  const reloadListener = listen(reloadButton, 'click', () => reloadPage());
+  errorCard.append(errorTitle, errorMessage, reloadButton);
   errorPanel.append(errorCard);
 
   root.append(hud, controls, toast, winPanel, loading, errorPanel);
 
-  let toastTimer = null;
-
   return {
     render(state) {
+      if (phase !== 'live') return;
       tokens.textContent = `Tokens: ${state.collectedCount} / ${state.total}`;
       time.textContent = `Time: ${formatTime(state.elapsed)}`;
       goal.textContent = state.won
@@ -87,17 +105,40 @@ export function createUI(root, { onRestart }) {
       }
     },
     notify(message) {
+      if (phase !== 'live') return;
       toast.textContent = message;
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => { toast.textContent = ''; }, 2500);
+      toastTimer = setTimeout(() => {
+        toastTimer = null;
+        toast.textContent = '';
+      }, 2500);
     },
     hideLoading() {
-      loading.hidden = true;
+      if (phase === 'live') loading.hidden = true;
     },
     showError(message) {
-      loading.hidden = true;
+      if (phase === 'gone') return;
+      if (phase === 'live') loading.hidden = true;
       errorMessage.textContent = message;
       errorPanel.hidden = false;
+    },
+    // Idempotent. With keepError, a visible error panel (and its Reload button)
+    // stays on screen after the rest of the UI is removed; a later dispose() removes it too.
+    dispose({ keepError = false } = {}) {
+      if (phase === 'gone') return;
+      if (phase === 'live') {
+        clearTimeout(toastTimer);
+        toastTimer = null;
+        for (const entry of [...listeners]) {
+          if (entry !== reloadListener) unlisten(entry);
+        }
+        for (const node of [hud, controls, toast, winPanel, loading]) node.remove();
+        phase = 'errorOnly';
+      }
+      if (keepError && !errorPanel.hidden) return;
+      unlisten(reloadListener);
+      errorPanel.remove();
+      phase = 'gone';
     },
   };
 }

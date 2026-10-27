@@ -38,13 +38,22 @@ Keys are cleared when the window loses focus or the tab is hidden, and the game 
 | File | Responsibility |
 | --- | --- |
 | `index.html`, `src/styles.css` | Page shell, canvas, HUD styling |
-| `src/main.js` | Renderer, lights, resize, fixed 1/60 s timestep (capped catch-up) inside `requestAnimationFrame`, wiring of all modules |
+| `src/main.js` | `createApp()`: renderer, lights, resize, fixed 1/60 s timestep (capped catch-up) inside `requestAnimationFrame`, wiring of all modules, and idempotent teardown (cancels the frame, removes listeners, disposes modules, renderer and shadow resources). Also bootstraps the page, loads the level/player modules lazily and tears down on Vite HMR or a fatal error (the error panel stays visible) |
 | `src/game-state.js` | Pure, DOM-free rules: collection, goal gating, falls, win, timer, restart. Covered by `tests/game-state.test.js` |
-| `src/input.js` | Keyboard state; produces `{moveX, moveZ, jumpPressed}` in world space (length <= 1, one-step jump edge) from the camera yaw |
+| `src/input.js` | Keyboard state keyed by physical key code (W and ArrowUp can overlap); produces `{moveX, moveZ, jumpPressed}` in world space (length <= 1, one-step jump edge) from the camera yaw |
 | `src/camera.js` | Third-person follow camera with drag orbit, pitch/distance limits and smooth follow |
 | `src/ui.js` | HUD, win, loading and error panels (semantic buttons, `textContent` only) |
 | `src/world.js` | Level, separately owned: `createWorld()` returns `{group, platforms, coins, spawn, goal, killY, update(dt), dispose()}` |
 | `src/player.js` | Player controller, separately owned: `createPlayer({platforms, spawn})` returns `{group, position, grounded, step(dt, input), reset(position), dispose()}` |
+
+## Tests
+
+`npm test` runs plain Node tests (no browser) in `tests/`:
+
+- `game-state.test.js`: collection, goal gating, falls, restart.
+- `input.test.js`: overlapping key bindings, camera-relative movement and normalization, jump edge and key repeat, blur/visibility clearing, disposal.
+- `ui.test.js`: HUD text, buttons, teardown (nodes, listeners, timers), keeping the error panel.
+- `app.test.js`: shell wiring with test doubles for the world, player, camera, input and renderer (fixed timestep and catch-up cap, pause/resume, victory, fall respawn, restart, teardown, init/fatal failures). It also checks the real `world.js`/`player.js` contract when both files exist.
 
 `main.js` only relies on those two interfaces, so the world and player modules can change independently.
 

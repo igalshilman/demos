@@ -1,29 +1,33 @@
-const MOVE_KEYS = {
-  KeyW: 'forward',
-  ArrowUp: 'forward',
-  KeyS: 'back',
-  ArrowDown: 'back',
-  KeyA: 'left',
-  ArrowLeft: 'left',
-  KeyD: 'right',
-  ArrowRight: 'right',
-};
+const FORWARD = ['KeyW', 'ArrowUp'];
+const BACK = ['KeyS', 'ArrowDown'];
+const LEFT = ['KeyA', 'ArrowLeft'];
+const RIGHT = ['KeyD', 'ArrowRight'];
+const MOVE_CODES = new Set([...FORWARD, ...BACK, ...LEFT, ...RIGHT]);
 
 const PREVENT_DEFAULT_KEYS = new Set([
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space',
 ]);
 
 function isInteractive(target) {
-  return target instanceof Element && target.closest('button, a, input, select, textarea') !== null;
+  return typeof target?.closest === 'function'
+    && target.closest('button, a, input, select, textarea') !== null;
 }
 
-export function createInput({ onRestart } = {}) {
+// `win` and `doc` default to the page's globals; tests pass event-target doubles.
+export function createInput({ onRestart, win = globalThis.window, doc = globalThis.document } = {}) {
+  // Physical key codes currently held, so two keys bound to one direction
+  // (W and ArrowUp) never cancel each other when one is released.
   const down = new Set();
   let jumpQueued = false;
+  let disposed = false;
 
   function clear() {
     down.clear();
     jumpQueued = false;
+  }
+
+  function held(codes) {
+    return codes.some((code) => down.has(code));
   }
 
   function onKeyDown(event) {
@@ -42,29 +46,29 @@ export function createInput({ onRestart } = {}) {
       if (!event.repeat) jumpQueued = true;
       return;
     }
-    if (MOVE_KEYS[code]) down.add(MOVE_KEYS[code]);
+    if (MOVE_CODES.has(code)) down.add(code);
   }
 
   function onKeyUp(event) {
-    if (MOVE_KEYS[event.code]) down.delete(MOVE_KEYS[event.code]);
+    down.delete(event.code);
   }
 
   function onVisibility() {
-    if (document.hidden) clear();
+    if (doc.hidden) clear();
   }
 
-  window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('keyup', onKeyUp);
-  window.addEventListener('blur', clear);
-  document.addEventListener('visibilitychange', onVisibility);
+  win.addEventListener('keydown', onKeyDown);
+  win.addEventListener('keyup', onKeyUp);
+  win.addEventListener('blur', clear);
+  doc.addEventListener('visibilitychange', onVisibility);
 
   return {
     clear,
     // Builds one step's input. The jump edge is consumed so it lasts exactly one step.
     // `yaw` is the camera's orbit angle; movement is relative to where the camera looks.
     read(yaw) {
-      const h = (down.has('right') ? 1 : 0) - (down.has('left') ? 1 : 0);
-      const v = (down.has('forward') ? 1 : 0) - (down.has('back') ? 1 : 0);
+      const h = (held(RIGHT) ? 1 : 0) - (held(LEFT) ? 1 : 0);
+      const v = (held(FORWARD) ? 1 : 0) - (held(BACK) ? 1 : 0);
       const fx = -Math.sin(yaw);
       const fz = -Math.cos(yaw);
       const rx = -fz;
@@ -81,10 +85,13 @@ export function createInput({ onRestart } = {}) {
       return { moveX, moveZ, jumpPressed };
     },
     dispose() {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
-      window.removeEventListener('blur', clear);
-      document.removeEventListener('visibilitychange', onVisibility);
+      if (disposed) return;
+      disposed = true;
+      clear();
+      win.removeEventListener('keydown', onKeyDown);
+      win.removeEventListener('keyup', onKeyUp);
+      win.removeEventListener('blur', clear);
+      doc.removeEventListener('visibilitychange', onVisibility);
     },
   };
 }
