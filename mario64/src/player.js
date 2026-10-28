@@ -21,6 +21,7 @@ export const MAX_SUBSTEP = 1 / 120;
 const HALF_WIDTH = PLAYER_WIDTH / 2;
 const MAX_FRAME = 0.25;
 const OVERLAP_EPSILON = 1e-5;
+const SUPPORT_PROBE = 1e-3;
 const TURN_RATE = 14;
 const UP = new Vector3(0, 1, 0);
 
@@ -99,6 +100,25 @@ export function createPlayer({ scene, spawn, colliders = [] }) {
     );
   }
 
+  function hasSupport() {
+    const e = OVERLAP_EPSILON;
+    for (const box of solids) {
+      if (
+        position.x + HALF_WIDTH > box.min.x + e &&
+        position.x - HALF_WIDTH < box.max.x - e &&
+        position.z + HALF_WIDTH > box.min.z + e &&
+        position.z - HALF_WIDTH < box.max.z - e &&
+        box.max.y <= position.y + e &&
+        box.max.y >= position.y - SUPPORT_PROBE
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  grounded = hasSupport();
+
   function moveAxis(axis, delta) {
     if (delta === 0) return false;
     position[axis] += delta;
@@ -167,7 +187,7 @@ export function createPlayer({ scene, spawn, colliders = [] }) {
   function reset() {
     position.copy(spawnPoint);
     velocity.set(0, 0, 0);
-    grounded = false;
+    grounded = hasSupport();
     jumpHeld = false;
     yaw = 0;
     group.rotation.y = 0;

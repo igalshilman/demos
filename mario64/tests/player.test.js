@@ -234,3 +234,57 @@ test('instances keep independent state', () => {
   run(a, 1, { y: 1 });
   assert.equal(b.position.z, 0);
 });
+
+test('a supported player can jump on the very first update after creation', () => {
+  const { player } = make();
+  player.update(DT, { jump: true }, FORWARD);
+  assert.ok(player.position.y > 0);
+});
+
+test('a player standing on a platform can jump on the first update', () => {
+  const platform = box(-2, 0, -2, 2, 1, 2);
+  const { player } = make([FLOOR, platform], new Vector3(0, 1, 0));
+  player.update(DT, { jump: true }, FORWARD);
+  assert.ok(player.position.y > 1);
+});
+
+test('a supported player can jump on the first update after reset', () => {
+  const { player } = make([FLOOR], new Vector3(1, 0, 2));
+  run(player, 0.5, { y: 1 });
+  player.update(DT, { jump: true }, FORWARD);
+  run(player, 0.1, {});
+  player.reset();
+  player.update(DT, { jump: true }, FORWARD);
+  assert.ok(player.position.y > 0);
+  assert.equal(player.position.x, 1);
+});
+
+test('an unsupported spawn cannot jump, including right after reset', () => {
+  const { player } = make([FLOOR], new Vector3(0, 3, 0));
+  player.update(DT, { jump: true }, FORWARD);
+  assert.ok(player.position.y < 3);
+  player.reset();
+  player.update(DT, { jump: true }, FORWARD);
+  assert.ok(player.position.y < 3);
+  assert.ok(player.position.y > 2.9);
+});
+
+test('a spawn beside a platform edge (not over it) is unsupported', () => {
+  const island = box(-2, -1, -2, 2, 0, 2);
+  const { player } = make([island], new Vector3(2.5, 0, 0));
+  player.update(DT, { jump: true }, FORWARD);
+  assert.ok(player.position.y < 0);
+});
+
+test('a held jump does not retrigger after a first-update jump and landing', () => {
+  const { player } = make();
+  let airborne = false;
+  let landed = false;
+  for (let i = 0; i < 240; i++) {
+    player.update(DT, { jump: true }, FORWARD);
+    if (player.position.y > 0) airborne = true;
+    else if (airborne) landed = true;
+    if (landed) assert.equal(player.position.y, 0);
+  }
+  assert.ok(airborne && landed);
+});
