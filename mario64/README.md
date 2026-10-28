@@ -57,3 +57,19 @@ After `npm run dev`, open the printed URL and confirm:
 7. **Restart** – pressing `R` (during play or after winning) returns to the start and clears the victory overlay.
 8. **Resize** – resizing the window keeps the scene filling the page with no stretching.
 9. **Focus** – release a key after switching tabs or windows: the character must not keep moving.
+
+## Verification record
+
+Last verified on a clean checkout of the PR branch, with the real level, player and follow-camera modules (no stand-ins):
+
+- `npm ci` – clean install succeeds
+- `npm test` – all tests pass, including `tests/integration.test.js`, which builds the real level, player and follow camera, drives them with the real input module, and runs a scripted playthrough from spawn to the goal
+- `npm run build` – production build succeeds
+- `npm run dev` – dev server serves the page and every module (HTTP 200)
+
+Not yet done: the manual browser checks above. No browser was available in the automated environment, so run them once in a real browser before sign-off.
+
+## Known integration notes
+
+- `src/player.js` reads `input.back` for the backward key, while the agreed input shape uses `backward`. `src/input.js` exposes both names so S / Down work today. Once the player module accepts `backward`, the alias can be dropped.
+- `src/level.js` adds its own lights; `src/main.js` adds only a gentle fill light on top, to avoid over-exposure.
