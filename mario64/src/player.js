@@ -62,13 +62,14 @@ function axisValue(...values) {
 }
 
 // Input: { x, y, jump } with x right-positive and y forward-positive, or the
-// boolean keys { left, right, forward, back }. Aliases moveX / moveY also work.
+// boolean keys { left, right, forward, backward }; `back` is accepted as an alias of `backward`.
+// Aliases moveX / moveY also work.
 function readMove(input) {
   if (!input) return { right: 0, forward: 0 };
   const right =
     axisValue(input.x, input.moveX) + (input.right === true ? 1 : 0) - (input.left === true ? 1 : 0);
   const forward =
-    axisValue(input.y, input.moveY) + (input.forward === true ? 1 : 0) - (input.back === true ? 1 : 0);
+    axisValue(input.y, input.moveY) + (input.forward === true ? 1 : 0) - (input.backward === true || input.back === true ? 1 : 0);
   return { right, forward };
 }
 

@@ -288,3 +288,43 @@ test('a held jump does not retrigger after a first-update jump and landing', () 
   }
   assert.ok(airborne && landed);
 });
+
+test('input.backward moves opposite the camera heading', () => {
+  const a = make().player;
+  run(a, 1, { backward: true }, new Vector3(0, 0, -1));
+  assert.ok(Math.abs(a.position.z - 5) < 1e-6);
+  assert.ok(Math.abs(a.position.x) < 1e-6);
+
+  const b = make().player;
+  run(b, 1, { backward: true }, new Vector3(1, 0, 0));
+  assert.ok(Math.abs(b.position.x + 5) < 1e-6);
+  assert.ok(Math.abs(b.position.z) < 1e-6);
+});
+
+test('back remains an alias of backward, and both together do not double up', () => {
+  const a = make().player;
+  run(a, 1, { back: true }, FORWARD);
+  assert.ok(Math.abs(a.position.z - 5) < 1e-6);
+
+  const b = make().player;
+  run(b, 1, { back: true, backward: true }, FORWARD);
+  assert.ok(Math.abs(b.position.z - 5) < 1e-6);
+});
+
+test('simultaneous forward and backward cancel out', () => {
+  const a = make().player;
+  run(a, 1, { forward: true, backward: true }, FORWARD);
+  assert.ok(Math.abs(a.position.z) < 1e-9);
+  assert.ok(Math.abs(a.position.x) < 1e-9);
+
+  const b = make().player;
+  run(b, 1, { forward: true, back: true }, FORWARD);
+  assert.ok(Math.abs(b.position.z) < 1e-9);
+});
+
+test('backward combined with a side key is normalized on the diagonal', () => {
+  const { player } = make();
+  run(player, 1, { backward: true, right: true }, FORWARD);
+  assert.ok(Math.abs(Math.hypot(player.position.x, player.position.z) - 5) < 1e-6);
+  assert.ok(player.position.x > 0 && player.position.z > 0);
+});
