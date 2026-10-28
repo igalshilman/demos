@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mario64 Demo – First Playable</title>
+  </head>
+  <body>
+    <canvas id="game" tabindex="0" aria-label="3D platformer game view"></canvas>
+    <div id="hud" aria-live="polite">
+      <div id="controls">
+        <strong>Controls</strong>
+        <span>Move: WASD / Arrow keys</span>
+        <span>Jump: Space</span>
+        <span>Restart: R</span>
+      </div>
+      <div id="status" data-state="playing">Reach the goal!</div>
+    </div>
+    <div id="victory" hidden>
+      <h1>You made it!</h1>
+      <p>Press <kbd>R</kbd> to play again.</p>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
