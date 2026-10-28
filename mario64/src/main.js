@@ -25,8 +25,8 @@ scene.fog = new THREE.Fog(0x87ceeb, 60, 200);
 
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 500);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x556677, 1.1));
-const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x556677, 0.5));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
 sun.position.set(20, 40, 15);
 scene.add(sun);
 

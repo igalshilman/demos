@@ -126,3 +126,54 @@ test('index.html provides the canvas, HUD controls and entry script', () => {
   for (const id of ['game', 'status', 'victory']) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /src="\/src\/main\.js"/);
 });
+
+test('releasing one alias keeps movement while the other alias is held (both release orders)', () => {
+  const target = fakeTarget();
+  const input = createInput(target, { doc: fakeTarget() });
+  const aliases = [['KeyW', 'ArrowUp', 'forward'], ['KeyS', 'ArrowDown', 'backward'],
+    ['KeyA', 'ArrowLeft', 'left'], ['KeyD', 'ArrowRight', 'right']];
+  for (const [a, b, action] of aliases) {
+    for (const [first, second] of [[a, b], [b, a]]) {
+      target.emit('keydown', key(a));
+      target.emit('keydown', key(b));
+      target.emit('keyup', key(first));
+      assert.equal(input.state[action], true, `${action}: ${second} still held after releasing ${first}`);
+      target.emit('keyup', key(second));
+      assert.equal(input.state[action], false, `${action}: released after both`);
+    }
+  }
+});
+
+test('repeated keydown of one alias does not leave a stale pressed key', () => {
+  const target = fakeTarget();
+  const input = createInput(target, { doc: fakeTarget() });
+  target.emit('keydown', key('KeyW'));
+  target.emit('keydown', key('KeyW', { repeat: true }));
+  target.emit('keyup', key('KeyW'));
+  assert.equal(input.state.forward, false);
+});
+
+test('blur and dispose forget tracked codes, so later releases cannot restore stale keys', () => {
+  const target = fakeTarget();
+  const input = createInput(target, { doc: fakeTarget() });
+  target.emit('keydown', key('KeyW'));
+  target.emit('keydown', key('ArrowUp'));
+  target.emit('blur');
+  target.emit('keydown', key('ArrowUp'));
+  target.emit('keyup', key('ArrowUp'));
+  assert.equal(input.state.forward, false, 'KeyW must not survive blur');
+
+  target.emit('keydown', key('KeyD'));
+  target.emit('keydown', key('ArrowRight'));
+  input.dispose();
+  assert.equal(input.state.right, false);
+  assert.equal(input.pressed.size, 0);
+});
+
+test('state exposes `back` as an alias of `backward` for the player module', () => {
+  const target = fakeTarget();
+  const input = createInput(target, { doc: fakeTarget() });
+  target.emit('keydown', key('KeyS'));
+  assert.equal(input.state.back, true);
+  assert.equal(Object.keys(input.state).includes('back'), false);
+});
