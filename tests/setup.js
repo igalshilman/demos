@@ -109,6 +109,11 @@ export class FakeElement {
     }
   }
   _matches(selector) {
+    const attr = /^\[([\w-]+)(?:="([^"]*)")?\]$/.exec(selector);
+    if (attr) {
+      const value = this.getAttribute(attr[1]);
+      return attr[2] === undefined ? value !== null : value === attr[2];
+    }
     if (selector.startsWith('#')) return this.id === selector.slice(1);
     if (selector.startsWith('.')) return this.classList.contains(selector.slice(1));
     return this.tagName === selector.toUpperCase();
@@ -130,11 +135,13 @@ function makeText(text) {
 
 export function createFakeDocument() {
   const body = new FakeElement('body');
+  const head = new FakeElement('head');
   return {
     body,
+    head,
     createElement: (tag) => new FakeElement(tag),
     createTextNode: makeText,
-    getElementById: (id) => body.querySelector(`#${id}`),
+    getElementById: (id) => body.querySelector(`#${id}`) || head.querySelector(`#${id}`),
     querySelector: (sel) => body.querySelector(sel),
     querySelectorAll: (sel) => body.querySelectorAll(sel),
   };
