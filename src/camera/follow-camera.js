@@ -27,6 +27,7 @@ export function createFollowCamera(camera, player, domElement) {
   const lookTarget = new THREE.Vector3();
 
   const pointers = new Map();
+  const captured = new Set();
   let pinchDistance = 0;
 
   const computeDesired = () => {
@@ -53,12 +54,29 @@ export function createFollowCamera(camera, player, domElement) {
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
 
+  const releaseCapture = (pointerId) => {
+    if (!captured.delete(pointerId)) return;
+    if (domElement.releasePointerCapture) {
+      try {
+        domElement.releasePointerCapture(pointerId);
+      } catch {
+        // already released
+      }
+    }
+  };
+
+  const releaseAllCaptures = () => {
+    for (const pointerId of [...captured]) releaseCapture(pointerId);
+    pointers.clear();
+  };
+
   const onPointerDown = (event) => {
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.size === 2) pinchDistance = pinchSpan();
     if (domElement.setPointerCapture) {
       try {
         domElement.setPointerCapture(event.pointerId);
+        captured.add(event.pointerId);
       } catch {
         // pointer may already be gone
       }
@@ -84,16 +102,19 @@ export function createFollowCamera(camera, player, domElement) {
     pitch = clamp(pitch + dy * ORBIT_SPEED, MIN_PITCH, MAX_PITCH);
   };
 
+  const forgetPointer = (pointerId) => {
+    const known = pointers.delete(pointerId);
+    captured.delete(pointerId);
+    if (known && pointers.size === 2) pinchDistance = pinchSpan();
+  };
+
   const onPointerEnd = (event) => {
-    if (!pointers.delete(event.pointerId)) return;
-    if (pointers.size === 2) pinchDistance = pinchSpan();
-    if (domElement.releasePointerCapture) {
-      try {
-        domElement.releasePointerCapture(event.pointerId);
-      } catch {
-        // already released
-      }
-    }
+    releaseCapture(event.pointerId);
+    forgetPointer(event.pointerId);
+  };
+
+  const onLostPointerCapture = (event) => {
+    forgetPointer(event.pointerId);
   };
 
   const onWheel = (event) => {
@@ -108,13 +129,17 @@ export function createFollowCamera(camera, player, domElement) {
   domElement.addEventListener('pointermove', onPointerMove);
   domElement.addEventListener('pointerup', onPointerEnd);
   domElement.addEventListener('pointercancel', onPointerEnd);
+  domElement.addEventListener('lostpointercapture', onLostPointerCapture);
   domElement.addEventListener('wheel', onWheel, { passive: false });
 
   snap();
 
   return {
     getYaw() {
-      return yaw;
+      const dx = camera.position.x - lookTarget.x;
+      const dz = camera.position.z - lookTarget.z;
+      if (dx * dx + dz * dz < 1e-8) return yaw;
+      return Math.atan2(dx, dz);
     },
 
     update(dt) {
@@ -131,17 +156,18 @@ export function createFollowCamera(camera, player, domElement) {
       yaw = 0;
       pitch = INITIAL_PITCH;
       distance = INITIAL_DISTANCE;
-      pointers.clear();
+      releaseAllCaptures();
       snap();
     },
 
     dispose() {
+      releaseAllCaptures();
       domElement.removeEventListener('pointerdown', onPointerDown);
       domElement.removeEventListener('pointermove', onPointerMove);
       domElement.removeEventListener('pointerup', onPointerEnd);
       domElement.removeEventListener('pointercancel', onPointerEnd);
+      domElement.removeEventListener('lostpointercapture', onLostPointerCapture);
       domElement.removeEventListener('wheel', onWheel);
-      pointers.clear();
       if (domElement.style && previousTouchAction !== undefined) {
         domElement.style.touchAction = previousTouchAction;
       }
