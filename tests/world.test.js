@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { aabbOverlap, groundHeightAt, moveAndSlide } from '../src/world/collision.js';
@@ -119,8 +119,8 @@ test('perimeter walls block the player', () => {
 
 test('moving platform oscillates between -6 and 6, box follows mesh, reset restores', () => {
   const world = createWorld(new THREE.Scene());
-  const findMoving = () => world.boxes.find((b) => b.min.z < -10 && b.max.z > -14 && b.max.y === 1.25);
-  const mover = findMoving();
+  const mover = world.movingPlatform.box;
+  assert.ok(world.boxes.includes(mover));
   assert.ok(mover);
   const center = () => (mover.min.x + mover.max.x) / 2;
   assert.ok(Math.abs(center() + 6) < 1e-9);
@@ -134,27 +134,79 @@ test('moving platform oscillates between -6 and 6, box follows mesh, reset resto
   assert.ok(min >= -6 - 1e-9 && max <= 6 + 1e-9);
   assert.ok(max > 5.9 && min < -5.9);
   world.update(2);
-  const meshes = [];
-  world.group.traverse((o) => { if (o.isMesh && Math.abs(o.position.z + 12) < 1e-9 && o.position.y > 0) meshes.push(o); });
-  assert.equal(meshes.length, 1);
-  assert.ok(Math.abs(meshes[0].position.x - center()) < 1e-9);
+  assert.ok(Math.abs(world.movingPlatform.mesh.position.x - center()) < 1e-9);
   world.reset();
   assert.ok(Math.abs(center() + 6) < 1e-9);
 });
 
-test('player standing on the moving platform is carried', () => {
-  const world = createWorld(new THREE.Scene());
-  const position = new THREE.Vector3(-6, 1.25, -12);
+// Rider simulation at frame intervals, in the game's order: world.update, then the player move.
+function rideFor(world, offsetFromCenter, dt, seconds, radius = 0.45, height = 1.8) {
+  const mover = world.movingPlatform.box;
+  const center = () => (mover.min.x + mover.max.x) / 2;
+  const position = new THREE.Vector3(center() + offsetFromCenter, mover.max.y, (mover.min.z + mover.max.z) / 2);
   const velocity = new THREE.Vector3();
-  world.update(0.5);
-  const before = position.x;
-  const grounded = world.movePlayer(position, velocity, 0.016, 0.4, 1);
-  assert.equal(grounded, true);
-  assert.ok(position.x > before);
+  const frames = Math.round(seconds / dt);
+  for (let i = 0; i < frames; i += 1) {
+    world.update(dt);
+    velocity.y = Math.max(velocity.y - 30 * dt, -45);
+    const grounded = world.movePlayer(position, velocity, dt, radius, height);
+    assert.equal(grounded, true, `frame ${i} offset ${offsetFromCenter} dt ${dt}`);
+    assert.ok(Math.abs(position.y - mover.max.y) < 1e-9);
+    assert.ok(Math.abs(position.x - center() - offsetFromCenter) < 1e-6, `drifted at frame ${i}`);
+  }
+}
+
+test('riders are carried at every position on the platform, including both edges and the radius margin', () => {
+  // 8 s covers a full period: rightward leg (left edge trails) then leftward leg (right edge trails).
+  for (const dt of [1 / 60, 1 / 30, 0.05]) {
+    for (const offset of [-2.4, -2, -1.9, 0, 1.9, 2, 2.4]) {
+      rideFor(createWorld(new THREE.Scene()), offset, dt, 8);
+    }
+  }
 });
 
-test('every platform top is reachable from the previous one with a modest jump', () => {
+test('a rider on the trailing edge is carried on the very first frame of each direction', () => {
   const world = createWorld(new THREE.Scene());
-  const tops = [1, 1.5, 2, 2.5].map((top, i) => groundHeightAt(world.boxes, 6, -7 - i * 8, 10));
-  assert.deepEqual(tops, [1, 1.5, 2, 2.5]);
+  const mover = world.movingPlatform.box;
+  const mid = (mover.min.z + mover.max.z) / 2;
+  // Platform starts at x=-6 and moves right, so its left edge trails.
+  const position = new THREE.Vector3(mover.min.x + 0.01, mover.max.y, mid);
+  const velocity = new THREE.Vector3();
+  world.update(1 / 60);
+  assert.equal(world.movePlayer(position, velocity, 1 / 60, 0.45, 1.8), true);
+  assert.ok(Math.abs(position.x - (mover.min.x + 0.01)) < 1e-9, 'rider keeps its place on the platform');
+  assert.equal(position.y, mover.max.y);
+});
+
+test('a player beside the platform (not on it) is not carried', () => {
+  const world = createWorld(new THREE.Scene());
+  const mover = world.movingPlatform.box;
+  const position = new THREE.Vector3(mover.min.x - 1.5, 0, (mover.min.z + mover.max.z) / 2);
+  const velocity = new THREE.Vector3();
+  const x0 = position.x;
+  world.update(0.1);
+  world.movePlayer(position, velocity, 0.1, 0.45, 1.8);
+  assert.equal(position.x, x0);
+});
+
+test('carry is applied once per update', () => {
+  const world = createWorld(new THREE.Scene());
+  const mover = world.movingPlatform.box;
+  const position = new THREE.Vector3(mover.min.x + 2, mover.max.y, (mover.min.z + mover.max.z) / 2);
+  const velocity = new THREE.Vector3();
+  world.update(0.5);
+  world.movePlayer(position, velocity, 0.016, 0.45, 1.8);
+  const x1 = position.x;
+  world.movePlayer(position, velocity, 0.016, 0.45, 1.8);
+  assert.equal(position.x, x1);
+});
+
+test('moveAndSlide also accepts centre position + half extents (unit-test call form)', () => {
+  const floor = box(-50, -1, -50, 50, 0, 50);
+  const half = { x: 0.5, y: 1, z: 0.5 };
+  const landed = moveAndSlide({ x: 0, y: 1.05, z: 0 }, { x: 0, y: -20, z: 0 }, half, [floor], 1 / 60);
+  assert.ok(Math.abs(landed.position.y - 1) < 1e-9);
+  assert.equal(landed.velocity.y, 0);
+  assert.equal(landed.onGround, true);
+  assert.equal(groundHeightAt([floor], 0, 0), 0);
 });

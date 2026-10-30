@@ -7,7 +7,7 @@ const GROUND_Z = [-50, 10];
 const WALL_HEIGHT = 3;
 const WALL_THICKNESS = 1;
 
-const PLATFORM_SIZE = { x: 4, z: 3 };
+const PLATFORM_SIZE = { x: 4, z: 3.6 };
 const PLATFORM_ROWS = [
   { z: -7, top: 1.0 },
   { z: -15, top: 1.5 },
@@ -17,9 +17,9 @@ const PLATFORM_ROWS = [
 const PLATFORM_X = [-6, 6];
 const PLATFORM_THICKNESS = 1;
 
-const FINAL_PLATFORM = { x: 0, z: -41, top: 3.0, sizeX: 10, sizeZ: 6 };
+const FINAL_PLATFORM = { x: 0, z: -41, top: 3.0, sizeX: 10, sizeZ: 7 };
 
-const MOVING = { z: -12, top: 1.25, sizeX: 4, sizeZ: 2.4, range: 6, period: 8 };
+const MOVING = { z: -12, top: 1.25, sizeX: 4, sizeZ: 2, range: 6, period: 8 };
 
 const CARRY_TOLERANCE = 0.05;
 
@@ -89,6 +89,9 @@ export function createWorld(scene) {
   let time = 0;
   let movingX = -MOVING.range;
   let pendingCarry = 0;
+  let carryPending = false;
+  let supportMinX = 0;
+  let supportMaxX = 0;
 
   function placeMoving(x) {
     moving.mesh.position.x = x;
@@ -96,38 +99,21 @@ export function createWorld(scene) {
     moving.box.max.x = x + movingHalfX;
   }
 
-  // Goal: a stone ring on the final platform that lights up when unlocked.
+  // The goal ring itself is drawn by the goal module at goalPosition.
   const goalPosition = new THREE.Vector3(fp.x, fp.top, fp.z);
-  const goal = new THREE.Group();
-  goal.name = 'goal';
-  goal.position.copy(goalPosition);
-  const goalRing = new THREE.Mesh(new THREE.TorusGeometry(1, 0.15, 6, 12), materials.goalLocked);
-  goalRing.position.y = 1.2;
-  goal.add(goalRing);
-  const goalBase = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1, 0.2, 8), materials.goalLocked);
-  goalBase.position.y = 0.1;
-  goal.add(goalBase);
-  group.add(goal);
 
-  function setGoalUnlocked(unlocked) {
-    const material = unlocked ? materials.goalUnlocked : materials.goalLocked;
-    goalRing.material = material;
-    goalBase.material = material;
-  }
-
-  // Orb positions around the course.
-  const orbLift = 0.9;
+  // Orb positions sit on the surface they belong to; the orb module adds its own hover height.
   const coinPositions = [
-    new THREE.Vector3(0, orbLift, -3),
-    new THREE.Vector3(-6, 1.0 + orbLift, -7),
-    new THREE.Vector3(6, 1.0 + orbLift, -7),
-    new THREE.Vector3(0, MOVING.top + orbLift, MOVING.z),
-    new THREE.Vector3(-6, 1.5 + orbLift, -15),
-    new THREE.Vector3(6, 1.5 + orbLift, -15),
-    new THREE.Vector3(-6, 2.0 + orbLift, -23),
-    new THREE.Vector3(6, 2.0 + orbLift, -23),
-    new THREE.Vector3(-6, 2.5 + orbLift, -31),
-    new THREE.Vector3(6, 2.5 + orbLift, -31),
+    new THREE.Vector3(0, 0, -3),
+    new THREE.Vector3(-6, 1.0, -7),
+    new THREE.Vector3(6, 1.0, -7),
+    new THREE.Vector3(0, MOVING.top, MOVING.z),
+    new THREE.Vector3(-6, 1.5, -15),
+    new THREE.Vector3(6, 1.5, -15),
+    new THREE.Vector3(-6, 2.0, -23),
+    new THREE.Vector3(6, 2.0, -23),
+    new THREE.Vector3(-6, 2.5, -31),
+    new THREE.Vector3(6, 2.5, -31),
   ];
 
   // Decorations (no collision), kept clear of the course.
@@ -196,6 +182,13 @@ export function createWorld(scene) {
   if (scene) scene.add(group);
 
   function update(dt) {
+    if (!carryPending) {
+      // Remember where the platform was before this frame's motion: riders are
+      // supported by those bounds, not by the ones it has just moved to.
+      supportMinX = moving.box.min.x;
+      supportMaxX = moving.box.max.x;
+      carryPending = true;
+    }
     time += dt;
     const next = -MOVING.range * Math.cos((2 * Math.PI * time) / MOVING.period);
     pendingCarry += next - movingX;
@@ -207,15 +200,15 @@ export function createWorld(scene) {
     time = 0;
     movingX = -MOVING.range;
     pendingCarry = 0;
+    carryPending = false;
     placeMoving(movingX);
-    setGoalUnlocked(false);
   }
 
   function isOnMoving(position, radius) {
     const b = moving.box;
     return (
       Math.abs(position.y - b.max.y) <= CARRY_TOLERANCE &&
-      position.x + radius > b.min.x && position.x - radius < b.max.x &&
+      position.x + radius > supportMinX && position.x - radius < supportMaxX &&
       position.z + radius > b.min.z && position.z - radius < b.max.z
     );
   }
@@ -223,9 +216,10 @@ export function createWorld(scene) {
   // Moves a player (feet position) and writes the result back into the inputs.
   function movePlayer(position, velocity, dt, radius = 0.4, height = 1.0) {
     const start = { x: position.x, y: position.y, z: position.z };
-    if (pendingCarry !== 0) {
+    if (carryPending) {
       if (isOnMoving(start, radius)) start.x += pendingCarry;
       pendingCarry = 0;
+      carryPending = false;
     }
     const result = moveAndSlide(
       boxes,
@@ -257,7 +251,7 @@ export function createWorld(scene) {
     update,
     reset,
     movePlayer,
-    setGoalUnlocked,
+    movingPlatform: { box: moving.box, mesh: moving.mesh },
     dispose,
   };
 }

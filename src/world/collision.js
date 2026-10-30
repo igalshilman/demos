@@ -23,7 +23,8 @@ function overlapsFootprint(box, x, z, radius) {
 }
 
 // Highest box top under (x, z) that is at or below feetY (+0.01), else -Infinity.
-export function groundHeightAt(boxes, x, z, feetY, radius = 0) {
+// Without feetY, the highest top under the point.
+export function groundHeightAt(boxes, x, z, feetY = Infinity, radius = 0) {
   let best = -Infinity;
   for (const box of boxes) {
     const top = box.max.y;
@@ -60,9 +61,7 @@ function resolveAxis(boxes, p, v, axis, radius, height) {
   }
 }
 
-// Moves a body for dt seconds, sliding along walls and landing on tops.
-// Returns { position, velocity, grounded } as new plain objects.
-export function moveAndSlide(boxes, position, velocity, dt, radius, height) {
+function slideFeet(boxes, position, velocity, dt, radius, height) {
   const p = { x: position.x, y: position.y, z: position.z };
   const v = { x: velocity.x, y: velocity.y, z: velocity.z };
 
@@ -118,4 +117,26 @@ export function moveAndSlide(boxes, position, velocity, dt, radius, height) {
   }
 
   return { position: p, velocity: v, grounded };
+}
+
+// Moves a body for dt seconds, sliding along walls and landing on tops. Two call forms:
+//   moveAndSlide(boxes, feetPosition, velocity, dt, radius, height)
+//   moveAndSlide(centerPosition, velocity, halfExtents, boxes, dt)
+// Both return new plain objects { position, velocity, grounded, onGround };
+// positions are in the same frame (feet or centre) as the input.
+export function moveAndSlide(...args) {
+  if (Array.isArray(args[0])) {
+    const [boxes, position, velocity, dt, radius, height] = args;
+    const result = slideFeet(boxes, position, velocity, dt, radius, height);
+    return { ...result, onGround: result.grounded };
+  }
+  const [position, velocity, half, boxes, dt] = args;
+  const feet = { x: position.x, y: position.y - half.y, z: position.z };
+  const result = slideFeet(boxes, feet, velocity, dt, Math.max(half.x, half.z), half.y * 2);
+  return {
+    position: { x: result.position.x, y: result.position.y + half.y, z: result.position.z },
+    velocity: result.velocity,
+    grounded: result.grounded,
+    onGround: result.grounded,
+  };
 }

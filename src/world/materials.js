@@ -16,8 +16,6 @@ export function createMaterials() {
     leaves: flat(0x2f8a4a),
     rock: flat(0x9b9a94),
     crystal: flat(0x6fe3ff, { emissive: 0x1a6f8a, emissiveIntensity: 0.6, roughness: 0.3 }),
-    goalLocked: flat(0x666a73, { emissive: 0x000000 }),
-    goalUnlocked: flat(0xffe066, { emissive: 0xffb300, emissiveIntensity: 0.8 }),
   };
 }
 
