@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createInput } from './input.js';
+import { createInput } from '../src/input.js';
 
 function key(target, type, code, extra = {}) {
   const event = new Event(type);
@@ -72,5 +72,50 @@ describe('createInput', () => {
     input.dispose();
     key(target, 'keydown', 'KeyW');
     expect(input.state.forward).toBe(false);
+  });
+
+  it('keeps an action held while another alias key is still down', () => {
+    const target = new EventTarget();
+    const { state } = createInput(target);
+    key(target, 'keydown', 'KeyW');
+    key(target, 'keydown', 'ArrowUp');
+    key(target, 'keyup', 'KeyW');
+    expect(state.forward).toBe(true);
+    expect(state.moveZ).toBe(1);
+    key(target, 'keyup', 'ArrowUp');
+    expect(state.forward).toBe(false);
+    expect(state.moveZ).toBe(0);
+  });
+
+  it('releases overlapping aliases independently in either order', () => {
+    const pairs = [
+      ['forward', 'KeyW', 'ArrowUp'],
+      ['backward', 'KeyS', 'ArrowDown'],
+      ['left', 'KeyA', 'ArrowLeft'],
+      ['right', 'KeyD', 'ArrowRight'],
+    ];
+    for (const [action, letter, arrow] of pairs) {
+      for (const [first, second] of [[letter, arrow], [arrow, letter]]) {
+        const target = new EventTarget();
+        const { state } = createInput(target);
+        key(target, 'keydown', letter);
+        key(target, 'keydown', arrow);
+        key(target, 'keyup', first);
+        expect(state[action]).toBe(true);
+        key(target, 'keyup', second);
+        expect(state[action]).toBe(false);
+      }
+    }
+  });
+
+  it('reports a fresh jumpPressed when space is released and pressed again', () => {
+    const target = new EventTarget();
+    const input = createInput(target);
+    key(target, 'keydown', 'Space');
+    input.endFrame();
+    key(target, 'keyup', 'Space');
+    expect(input.state.jump).toBe(false);
+    key(target, 'keydown', 'Space');
+    expect(input.state.jumpPressed).toBe(true);
   });
 });

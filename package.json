@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run --config vite.config.js && npm run test:modules",
+    "test:modules": "node --test tests/world.test.js tests/player/movement.test.js tests/player/player.test.js tests/follow-camera.test.mjs tests/gameplay.test.mjs"
   },
   "dependencies": {
     "three": "^0.160.0"

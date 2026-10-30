@@ -27,7 +27,8 @@ const PREVENT_DEFAULT = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', '
  * Call `endFrame()` once per frame after consuming the state.
  */
 export function createInput(target = globalThis.window, { onRestart } = {}) {
-  const held = new Set();
+  // Physical keys currently down. An action is held while any of its keys is.
+  const heldCodes = new Set();
   const state = {
     forward: false,
     backward: false,
@@ -40,12 +41,19 @@ export function createInput(target = globalThis.window, { onRestart } = {}) {
     restartPressed: false,
   };
 
+  function isHeld(action) {
+    for (const code of heldCodes) {
+      if (KEY_MAP[code] === action) return true;
+    }
+    return false;
+  }
+
   function refresh() {
-    state.forward = held.has('forward');
-    state.backward = held.has('backward');
-    state.left = held.has('left');
-    state.right = held.has('right');
-    state.jump = held.has('jump');
+    state.forward = isHeld('forward');
+    state.backward = isHeld('backward');
+    state.left = isHeld('left');
+    state.right = isHeld('right');
+    state.jump = isHeld('jump');
     state.moveX = (state.right ? 1 : 0) - (state.left ? 1 : 0);
     state.moveZ = (state.forward ? 1 : 0) - (state.backward ? 1 : 0);
   }
@@ -55,25 +63,24 @@ export function createInput(target = globalThis.window, { onRestart } = {}) {
     if (!action) return;
     if (PREVENT_DEFAULT.has(event.code) && event.preventDefault) event.preventDefault();
     if (event.repeat) return;
-    if (action === 'jump' && !held.has('jump')) state.jumpPressed = true;
     if (action === 'restart') {
       state.restartPressed = true;
       if (onRestart) onRestart();
       return;
     }
-    held.add(action);
+    if (action === 'jump' && !state.jump) state.jumpPressed = true;
+    heldCodes.add(event.code);
     refresh();
   }
 
   function onKeyUp(event) {
-    const action = KEY_MAP[event.code];
-    if (!action || action === 'restart') return;
-    held.delete(action);
+    if (!KEY_MAP[event.code] || KEY_MAP[event.code] === 'restart') return;
+    heldCodes.delete(event.code);
     refresh();
   }
 
   function clear() {
-    held.clear();
+    heldCodes.clear();
     state.jumpPressed = false;
     state.restartPressed = false;
     refresh();
