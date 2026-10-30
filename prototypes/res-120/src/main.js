@@ -4,7 +4,7 @@ import { createPlayer } from "./player.js";
 import { createGameState, bodyCenter, isTouching } from "./game-state.js";
 
 const MAX_DT = 0.05;
-const CAMERA_OFFSET = new THREE.Vector3(0, 6, 9);
+const CAMERA_OFFSET = new THREE.Vector3(-9, 6, 0);
 const CAMERA_LOOK_HEIGHT = 1.2;
 const CAMERA_FOLLOW_RATE = 6;
 
@@ -93,6 +93,15 @@ function start() {
     return () => {};
   }
   scene.add(world.group, player.group);
+  world.group.traverse((o) => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
+  player.group.traverse((o) => {
+    if (o.isMesh) o.receiveShadow = true;
+  });
 
   const state = createGameState(world.collectibles.map((c) => c.id));
   const progressEl = $("progress-count");
@@ -186,7 +195,7 @@ function start() {
         state.fall();
         player.reset();
         snapCamera();
-        setMessage("Oops! Back to the start. Your stars are kept.", 1.8);
+        setMessage("Oops! Back to the start. Your gems are kept.", 1.8);
       }
 
       const center = bodyCenter(player.position);
@@ -196,7 +205,7 @@ function start() {
           c.mesh.visible = false;
           updateHud();
           setMessage(
-            state.allCollected ? "All stars collected! Head to the goal." : "Star collected!",
+            state.allCollected ? "All gems collected! Head to the goal." : "Gem collected!",
             1.5
           );
         }
@@ -208,7 +217,7 @@ function start() {
           setMessage("", 0);
           updateHud();
         } else {
-          setMessage(`Collect all stars first (${state.remaining} left).`, 0.25);
+          setMessage(`Collect all gems first (${state.remaining} left).`, 0.25);
         }
       }
     }

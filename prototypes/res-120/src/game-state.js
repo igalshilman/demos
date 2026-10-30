@@ -1,5 +1,6 @@
-export const BODY_CENTER_OFFSET = 0.9;
-export const BODY_RADIUS = 0.4;
+// Matches the player: 1.2 tall (centre 0.6 above the feet), half-width 0.35.
+export const BODY_CENTER_OFFSET = 0.6;
+export const BODY_RADIUS = 0.35;
 
 export function bodyCenter(feet, offset = BODY_CENTER_OFFSET) {
   return { x: feet.x, y: feet.y + offset, z: feet.z };

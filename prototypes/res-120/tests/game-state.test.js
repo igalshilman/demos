@@ -92,3 +92,11 @@ test("pickup detection uses body center, not feet", () => {
   const atFeet = { position: { x: 0, y: 0, z: 0 }, radius: 0.1 };
   assert.equal(isTouching(center, atFeet, 0.4), false);
 });
+
+test("default body reach picks up a gem hovering 0.7 above the surface", () => {
+  const feet = { x: 8, y: 0.8, z: 0 };
+  const gem = { position: { x: 8, y: 0.8 + 0.7, z: 0 }, radius: 0.5 };
+  assert.equal(isTouching(bodyCenter(feet), gem), true);
+  const far = { position: { x: 10, y: 0.8 + 0.7, z: 0 }, radius: 0.5 };
+  assert.equal(isTouching(bodyCenter(feet), far), false);
+});
