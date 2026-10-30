@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RES-120 Low-Poly Platformer Prototype</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="hud" aria-live="polite">
+      <div class="panel" id="progress">Stars: <span id="progress-count">0 / 0</span></div>
+      <div class="panel" id="controls">
+        <strong>Controls</strong>
+        <div>Move: WASD / Arrow keys</div>
+        <div>Jump: Space</div>
+        <div>Restart: R</div>
+      </div>
+      <div id="message" hidden></div>
+      <div id="win" hidden>
+        <h1>You made it!</h1>
+        <p>All stars collected and the goal reached.</p>
+        <p>Press <kbd>R</kbd> to play again.</p>
+      </div>
+      <div id="paused" hidden>Paused</div>
+    </div>
+    <div id="error" hidden></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
