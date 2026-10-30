@@ -8,8 +8,10 @@ import {
 } from "./player-controller.js";
 import {
   collectCrystal,
+  cameraRelativeMove,
   counterText,
   createGameState,
+  desiredCameraPosition,
   hintText,
   isCollected,
   reachGoal,
@@ -142,7 +144,6 @@ function start() {
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 400);
   let cameraYaw = 0;
   const cameraTarget = new THREE.Vector3();
-  const cameraPosition = new THREE.Vector3();
   let facing = 0;
 
   const keys = new Set();
@@ -188,12 +189,9 @@ function start() {
 
   function snapCamera() {
     cameraTarget.set(player.position.x, player.position.y + PLAYER_HEIGHT * 0.5, player.position.z);
-    cameraPosition.set(
-      cameraTarget.x + Math.sin(cameraYaw) * CAMERA_DISTANCE,
-      cameraTarget.y + CAMERA_HEIGHT,
-      cameraTarget.z + Math.cos(cameraYaw) * CAMERA_DISTANCE,
+    camera.position.copy(
+      desiredCameraPosition(cameraTarget, cameraYaw, CAMERA_DISTANCE, CAMERA_HEIGHT),
     );
-    camera.position.copy(cameraPosition);
     camera.lookAt(cameraTarget);
   }
 
@@ -224,19 +222,8 @@ function start() {
     if (keys.has("KeyD") || keys.has("ArrowRight")) x += 1;
     if (keys.has("KeyW") || keys.has("ArrowUp")) y += 1;
     if (keys.has("KeyS") || keys.has("ArrowDown")) y -= 1;
-    const length = Math.hypot(x, y);
-    if (length === 0) return { moveX: 0, moveZ: 0 };
-    x /= length;
-    y /= length;
-    // Camera sits at +yaw offset looking at the player: forward is away from the camera.
-    const forwardX = -Math.sin(cameraYaw);
-    const forwardZ = -Math.cos(cameraYaw);
-    const rightX = Math.cos(cameraYaw);
-    const rightZ = -Math.sin(cameraYaw);
-    return {
-      moveX: rightX * x + forwardX * y,
-      moveZ: rightZ * x + forwardZ * y,
-    };
+    // Use the camera as displayed (smoothed), not the yaw it is turning towards.
+    return cameraRelativeMove({ x, y }, camera.position, cameraTarget, cameraYaw);
   }
 
   function playerCenter() {
@@ -334,12 +321,8 @@ function start() {
       new THREE.Vector3(player.position.x, player.position.y + PLAYER_HEIGHT * 0.5, player.position.z),
       1 - Math.exp(-CAMERA_FOLLOW_RATE * dt),
     );
-    const desired = new THREE.Vector3(
-      cameraTarget.x + Math.sin(cameraYaw) * CAMERA_DISTANCE,
-      cameraTarget.y + CAMERA_HEIGHT,
-      cameraTarget.z + Math.cos(cameraYaw) * CAMERA_DISTANCE,
-    );
-    camera.position.lerp(desired, 1 - Math.exp(-CAMERA_FOLLOW_RATE * dt));
+    const desired = desiredCameraPosition(cameraTarget, cameraYaw, CAMERA_DISTANCE, CAMERA_HEIGHT);
+    camera.position.lerp(new THREE.Vector3(desired.x, desired.y, desired.z), 1 - Math.exp(-CAMERA_FOLLOW_RATE * dt));
     camera.lookAt(cameraTarget);
 
     renderer.render(scene, camera);

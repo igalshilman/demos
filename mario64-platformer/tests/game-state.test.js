@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   allCollected,
+  cameraAxes,
+  cameraRelativeMove,
+  desiredCameraPosition,
   collectCrystal,
   collectedCount,
   counterText,
@@ -71,4 +74,67 @@ test("an empty crystal list never counts as all collected", () => {
   const state = createGameState([]);
   assert.equal(allCollected(state), false);
   assert.equal(reachGoal(state), false);
+});
+
+const DIST = 11;
+const HEIGHT = 6.5;
+const near = (actual, expected, message) =>
+  assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} vs ${expected}`);
+
+test("forward is away from the camera and right is to its right", () => {
+  const target = { x: 3, y: 1, z: -2 };
+  const cam = desiredCameraPosition(target, 0, DIST, HEIGHT);
+  const move = cameraRelativeMove({ x: 0, y: 1 }, cam, target);
+  near(move.moveX, 0, "forward x");
+  near(move.moveZ, -1, "forward z");
+  const right = cameraRelativeMove({ x: 1, y: 0 }, cam, target);
+  near(right.moveX, 1, "right x");
+  near(right.moveZ, 0, "right z");
+});
+
+test("diagonal movement is normalized", () => {
+  const target = { x: 0, y: 0, z: 0 };
+  const cam = desiredCameraPosition(target, 0.7, DIST, HEIGHT);
+  const move = cameraRelativeMove({ x: 1, y: 1 }, cam, target);
+  near(Math.hypot(move.moveX, move.moveZ), 1, "speed");
+  assert.deepEqual(cameraRelativeMove({ x: 0, y: 0 }, cam, target), { moveX: 0, moveZ: 0 });
+});
+
+test("movement follows the displayed camera while orbit smoothing lags the target yaw", () => {
+  const target = { x: 0, y: 0, z: 0 };
+  const targetYaw = Math.PI / 2;
+  const goal = desiredCameraPosition(target, targetYaw, DIST, HEIGHT);
+  const cam = desiredCameraPosition(target, 0, DIST, HEIGHT);
+
+  // Smooth a few frames towards the new orbit position, as the game loop does.
+  for (let frame = 0; frame < 6; frame++) {
+    const k = 1 - Math.exp(-6 / 60);
+    cam.x += (goal.x - cam.x) * k;
+    cam.y += (goal.y - cam.y) * k;
+    cam.z += (goal.z - cam.z) * k;
+
+    const displayed = cameraAxes(cam, target).forward;
+    const move = cameraRelativeMove({ x: 0, y: 1 }, cam, target, targetYaw);
+    near(move.moveX, displayed.x, "forward x matches the displayed camera");
+    near(move.moveZ, displayed.z, "forward z matches the displayed camera");
+
+    // Not the direction of the not-yet-reached target yaw.
+    const viaTargetYaw = { x: -Math.sin(targetYaw), z: -Math.cos(targetYaw) };
+    assert.ok(Math.hypot(move.moveX - viaTargetYaw.x, move.moveZ - viaTargetYaw.z) > 0.1);
+  }
+
+  for (let frame = 0; frame < 2000; frame++) {
+    cam.x += (goal.x - cam.x) * 0.1;
+    cam.z += (goal.z - cam.z) * 0.1;
+  }
+  const settled = cameraRelativeMove({ x: 0, y: 1 }, cam, target, targetYaw);
+  near(settled.moveX, -1, "settled forward x");
+  near(settled.moveZ, 0, "settled forward z");
+});
+
+test("a camera directly above the target falls back to the given yaw", () => {
+  const target = { x: 0, y: 0, z: 0 };
+  const move = cameraRelativeMove({ x: 0, y: 1 }, { x: 0, y: 9, z: 0 }, target, Math.PI / 2);
+  near(move.moveX, -1, "x");
+  near(move.moveZ, 0, "z");
 });

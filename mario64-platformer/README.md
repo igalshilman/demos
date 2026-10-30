@@ -44,7 +44,7 @@ Open the address printed by `npm run dev` (usually http://localhost:5173) to pla
 ## Project layout
 
 - `src/main.js` - renderer, scene, input, camera, and the game loop
-- `src/game-state.js` - pure collection / win rules (no browser or Three.js dependency)
+- `src/game-state.js` - pure collection / win rules and camera-relative movement math (no browser or Three.js dependency)
 - `src/level.js` - level geometry, collision boxes, crystals and goal
 - `src/player-controller.js` - player movement, gravity, jumping and collision
 - `tests/game-state.test.js` - unit tests for the game rules
@@ -59,7 +59,7 @@ This is intentionally a small demo. It has no pointer lock, no sophisticated cam
 npm test
 ```
 
-The automated tests cover the game rules: collecting each crystal only once, the goal staying locked until all five are collected, winning, and restarting. Movement, rendering and camera behavior are checked manually.
+The automated tests cover the game rules (collecting each crystal only once, the goal staying locked until all five are collected, winning, restarting), camera-relative movement including a regression test that movement follows the camera as displayed while it is still smoothing towards a new orbit angle, plus the level and player controller tests. Rendering and real input are checked manually.
 
 ## Manual test checklist
 
@@ -74,3 +74,19 @@ The automated tests cover the game rules: collecting each crystal only once, the
 - [ ] **Focus**: Switching to another tab or window while holding a key does not leave the player running when you return.
 - [ ] **Resize**: Resizing the browser window keeps the view filling the window with the right proportions.
 - [ ] **No WebGL**: With WebGL disabled the page shows a friendly message instead of a blank screen.
+
+## Browser verification log
+
+Run on 2026-10-30 against `npm run dev` with the real level and player controller, in headless Chromium (software WebGL) driven by Playwright with real key presses. To reach pickups quickly, the script teleported the player onto each crystal and the goal; the game logic then ran normally.
+
+Passed:
+
+- Movement, jump and camera: W/D move relative to the camera, and W still moves along the camera's forward direction after orbiting with E; Space jumps.
+- Pickups: all five crystals are counted once, hidden when collected, and touching one again does not double count (counter reaches 5 / 5).
+- Goal: the finish stays locked before all five crystals, and wins after all five.
+- Win pause: no movement after winning.
+- Restart: R restores crystals, player position and clears victory.
+- Fall reset: falling below the level respawns at the start with collected crystals still collected.
+- Focus, scroll and resize: blur clears held keys, Space and arrows do not scroll the page, resizing keeps the aspect ratio right. No console errors.
+
+Not checked in a browser: walking into walls and landing on platforms by hand (covered by the controller's unit tests), the no-WebGL message, and play on a real GPU or with a person at the keyboard.
