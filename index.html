@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Star Hopper</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="game" tabindex="-1" aria-label="Star Hopper game view"></canvas>
+
+    <div id="hud" hidden>
+      <div class="panel counter" aria-live="polite">
+        <span id="stars" class="stars" aria-hidden="true"></span>
+        <span id="count-text" class="count-text">0 / 5 stars</span>
+      </div>
+      <div class="panel controls">
+        <strong>Controls</strong>
+        <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows move</span>
+        <span><kbd>Space</kbd> jump</span>
+        <span><kbd>R</kbd> restart</span>
+      </div>
+      <button id="restart" class="restart" type="button">Restart (R)</button>
+    </div>
+
+    <div id="victory" class="overlay" role="status" hidden>
+      <div class="card">
+        <h1>All five stars collected!</h1>
+        <p>Nicely hopped. Take another run?</p>
+        <button id="victory-restart" type="button">Play again (R)</button>
+      </div>
+    </div>
+
+    <div id="fallback" class="overlay" role="alert" hidden>
+      <div class="card">
+        <h1>WebGL is not available</h1>
+        <p>Star Hopper needs WebGL to draw its 3D world. Try a recent version of Chrome, Firefox, Safari or Edge, and make sure hardware acceleration is enabled.</p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
