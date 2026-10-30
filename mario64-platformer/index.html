@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crystal Climb</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <canvas id="game" tabindex="0" aria-label="3D platformer game"></canvas>
+
+    <div id="hud" aria-live="polite">
+      <div id="crystal-counter">Crystals: 0 / 5</div>
+      <div id="hint"></div>
+    </div>
+
+    <div id="controls-help">
+      WASD / Arrows: move &middot; Space: jump &middot; Q / E: turn camera &middot; R: restart
+    </div>
+
+    <div id="win-banner" class="overlay" hidden>
+      <div class="panel">
+        <h1>You made it!</h1>
+        <p>All five crystals collected and the finish platform reached.</p>
+        <p>Press <kbd>R</kbd> to play again.</p>
+      </div>
+    </div>
+
+    <div id="error-banner" class="overlay" hidden>
+      <div class="panel">
+        <h1>Cannot start the game</h1>
+        <p id="error-message"></p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
